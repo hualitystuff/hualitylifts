@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Huality Lifts"/>
+<title>Huality Lifts</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{background:#0a0a0a;color:#e0e0e0;font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+  input[type=number]{-moz-appearance:textfield;}
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-track{background:#111;}
+  ::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const STORAGE_KEY = "huality_v1";
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const DAY_COLORS = {
+  Monday:"#E8FF3C", Tuesday:"#3CF0FF", Wednesday:"#FF6B3C",
+  Thursday:"#B03CFF", Friday:"#3CFF8F", Saturday:"#FF3C8F", Sunday:"#FFB03C"
+};
+
+const DEFAULT_LIBRARY = [
+  {name:"Bench Press",type:"lifting"},{name:"Incline Bench Press",type:"lifting"},{name:"Decline Bench Press",type:"lifting"},
+  {name:"Squat",type:"lifting"},{name:"Romanian Deadlift",type:"lifting"},{name:"Leg Press",type:"lifting"},
+  {name:"Leg Curl",type:"lifting"},{name:"Leg Extension",type:"lifting"},
+  {name:"Deadlift",type:"lifting"},{name:"Barbell Row",type:"lifting"},{name:"Pull-Up",type:"lifting"},
+  {name:"Lat Pulldown",type:"lifting"},{name:"Cable Row",type:"lifting"},
+  {name:"Overhead Press",type:"lifting"},{name:"Arnold Press",type:"lifting"},
+  {name:"Lateral Raise",type:"lifting"},{name:"Front Raise",type:"lifting"},
+  {name:"Bicep Curl",type:"lifting"},{name:"Hammer Curl",type:"lifting"},{name:"Preacher Curl",type:"lifting"},
+  {name:"Tricep Pushdown",type:"lifting"},{name:"Skull Crushers",type:"lifting"},{name:"Dips",type:"lifting"},
+  {name:"Plank",type:"lifting"},{name:"Hanging Knee Raise",type:"lifting"},{name:"Cable Crunch",type:"lifting"},
+  {name:"Face Pull",type:"lifting"},{name:"Shrugs",type:"lifting"},{name:"Hip Thrust",type:"lifting"},
+  {name:"Bulgarian Split Squat",type:"lifting"},
+  {name:"Treadmill",type:"cardio"},{name:"Cycling",type:"cardio"},{name:"Rowing Machine",type:"cardio"},
+  {name:"Jump Rope",type:"cardio"},{name:"Stair Climber",type:"cardio"},{name:"Elliptical",type:"cardio"},
+  {name:"HIIT Sprints",type:"cardio"},{name:"Battle Ropes",type:"cardio"},
+];
+
+function loadData() {
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+function saveData(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
+function todayDayName() { return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()]; }
+function formatDate(d) { return new Date(d).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
+function nowKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+
+// ── REST TIMER ──
+function RestTimer({ onClose }) {
+  const [total, setTotal] = useState(90);
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(true);
+  const ref = useRef(null);
+
+  useEffect(() => { setElapsed(0); setRunning(true); }, [total]);
+  useEffect(() => {
+    if (running && elapsed < total) {
+      ref.current = setInterval(() => {
+        setElapsed(e => { if(e+1>=total){setRunning(false);clearInterval(ref.current);} return e+1; });
+      }, 1000);
+    }
+    return () => clearInterval(ref.current);
+  }, [running, total]);
+
+  const r=54, circ=2*Math.PI*r, dash=circ-((elapsed/total)*circ);
+  const remaining = total - elapsed;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.93)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:20}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:4,color:"#555",textTransform:"uppercase"}}>Rest Timer</div>
+      <svg width={140} height={140}>
+        <circle cx={70} cy={70} r={r} fill="none" stroke="#1a1a1a" strokeWidth={8}/>
+        <circle cx={70} cy={70} r={r} fill="none" stroke="#E8FF3C" strokeWidth={8}
+          strokeDasharray={circ} strokeDashoffset={dash} strokeLinecap="round"
+          transform="rotate(-90 70 70)" style={{transition:"stroke-dashoffset 1s linear"}}/>
+        <text x={70} y={82} textAnchor="middle" fill={remaining===0?"#E8FF3C":"#fff"}
+          style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:42,fontWeight:700}}>
+          {remaining===0?"✓":remaining}
+        </text>
+      </svg>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,width:220}}>
+        {[30,60,90,120].map(t=>(
+          <button key={t} onClick={()=>setTotal(t)} style={{
+            background:total===t?"#E8FF3C22":"#1a1a1a",border:`1px solid ${total===t?"#E8FF3C":"#333"}`,
+            color:total===t?"#E8FF3C":"#666",padding:"10px 0",borderRadius:8,cursor:"pointer",
+            fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,letterSpacing:1,textAlign:"center"
+          }}>{t}s</button>
+        ))}
+      </div>
+      <button onClick={onClose} style={{background:"#E8FF3C",color:"#000",border:"none",padding:"12px 32px",borderRadius:8,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>Done Resting</button>
+    </div>
+  );
+}
+
+// ── EXERCISE PICKER ──
+function ExercisePicker({ library, selected, onToggle, onClose, day }) {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const color = DAY_COLORS[day];
+  const filtered = library.filter(e => e.name.toLowerCase().includes(search.toLowerCase()) && (typeFilter==="all"||e.type===typeFilter));
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:990,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div style={{background:"#111",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:520,maxHeight:"82vh",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #1e1e1e",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff",textTransform:"uppercase"}}>Add Exercises</div>
+            <div style={{fontSize:11,color:color,letterSpacing:2,marginTop:2}}>{day.toUpperCase()}</div>
+          </div>
+          <button onClick={onClose} style={{background:"#1a1a1a",border:"1px solid #222",color:"#888",padding:"8px 16px",borderRadius:8,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,letterSpacing:1}}>Done</button>
+        </div>
+        <div style={{padding:"10px 20px",borderBottom:"1px solid #1a1a1a",display:"flex",gap:8}}>
+          {[{id:"all",label:"All"},{id:"lifting",label:"🏋️ Lifting"},{id:"cardio",label:"🏃 Cardio"}].map(t=>(
+            <button key={t.id} onClick={()=>setTypeFilter(t.id)} style={{
+              padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer",
+              background:typeFilter===t.id?color:"#1a1a1a",color:typeFilter===t.id?"#000":"#555",
+              fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,letterSpacing:1,textTransform:"uppercase"
+            }}>{t.label}</button>
+          ))}
+        </div>
+        <div style={{padding:"10px 20px",borderBottom:"1px solid #1a1a1a"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search exercises..."
+            style={{width:"100%",background:"#0a0a0a",border:"1px solid #1e1e1e",borderRadius:8,color:"#fff",padding:"10px 14px",fontSize:14,outline:"none",fontFamily:"'DM Sans',sans-serif"}}/>
+        </div>
+        <div style={{overflowY:"auto",padding:"10px 20px 40px",flex:1}}>
+          {filtered.map(ex=>{
+            const active = selected.includes(ex.name);
+            const isCardio = ex.type==="cardio";
+            return (
+              <div key={ex.name} onClick={()=>onToggle(ex.name)} style={{
+                display:"flex",alignItems:"center",justifyContent:"space-between",
+                padding:"12px 14px",marginBottom:6,borderRadius:8,cursor:"pointer",
+                background:active?"rgba(232,255,60,0.05)":"#0a0a0a",
+                border:`1px solid ${active?color+"44":"#1e1e1e"}`,
+                borderLeft:`3px solid ${active?color:"transparent"}`
+              }}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,letterSpacing:0.5,color:active?color:"#999",textTransform:"uppercase"}}>{ex.name}</div>
+                  <span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",padding:"2px 7px",borderRadius:20,background:isCardio?"rgba(60,240,255,0.1)":"rgba(232,255,60,0.08)",color:isCardio?"#3CF0FF":"#888",border:`1px solid ${isCardio?"#3CF0FF33":"#2a2a2a"}`}}>{isCardio?"Cardio":"Lifting"}</span>
+                </div>
+                <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${active?color:"#333"}`,background:active?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {active && <span style={{color:"#000",fontSize:13,fontWeight:900}}>✓</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DAY CARD ──
+function DayCard({ day, library, weekPlan, setWeekPlan, journal, setJournal, isToday, dayLabels, setDayLabels }) {
+  const [open, setOpen] = useState(isToday);
+  const [showPicker, setShowPicker] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState(dayLabels[day]||"");
+  const color = DAY_COLORS[day];
+  const workouts = weekPlan[day]||[];
+  const selectedNames = workouts.map(w=>w.name);
+  const customLabel = dayLabels[day];
+
+  function saveLabel() { setDayLabels(prev=>({...prev,[day]:labelDraft.trim()})); setEditingLabel(false); }
+
+  function toggleExercise(name) {
+    setWeekPlan(prev=>{
+      const curr=prev[day]||[];
+      if(curr.find(w=>w.name===name)) return {...prev,[day]:curr.filter(w=>w.name!==name)};
+      const ex=library.find(e=>e.name===name);
+      const type=ex?.type||"lifting";
+      const defaultSet=type==="cardio"?{sets:"",time:""}:{reps:"",weight:""};
+      return {...prev,[day]:[...curr,{name,type,sets:[defaultSet]}]};
+    });
+  }
+
+  function addSet(wIdx) {
+    setWeekPlan(prev=>{
+      const curr=[...(prev[day]||[])];
+      const type=curr[wIdx].type||"lifting";
+      curr[wIdx]={...curr[wIdx],sets:[...curr[wIdx].sets,type==="cardio"?{sets:"",time:""}:{reps:"",weight:""}]};
+      return {...prev,[day]:curr};
+    });
+  }
+
+  function removeSet(wIdx,sIdx) {
+    setWeekPlan(prev=>{
+      const curr=[...(prev[day]||[])];
+      const sets=curr[wIdx].sets.filter((_,i)=>i!==sIdx);
+      curr[wIdx]={...curr[wIdx],sets:sets.length?sets:[{reps:"",weight:""}]};
+      return {...prev,[day]:curr};
+    });
+  }
+
+  function updateSet(wIdx,sIdx,field,val) {
+    setWeekPlan(prev=>{
+      const curr=(prev[day]||[]).map((w,i)=>{
+        if(i!==wIdx) return w;
+        return {...w,sets:w.sets.map((s,j)=>j===sIdx?{...s,[field]:val}:s)};
+      });
+      return {...prev,[day]:curr};
+    });
+  }
+
+  function completeDay() {
+    if(!workouts.length) return;
+    const key=nowKey()+"-"+day;
+    setJournal(prev=>({...prev,[key]:{date:key,dateLabel:`${day}, ${formatDate(nowKey())}`,day,workouts,totalSets:workouts.reduce((a,w)=>a+w.sets.length,0),totalExercises:workouts.length}}));
+    setWeekPlan(prev=>({...prev,[day]:[]}));
+    setShowComplete(true);
+    setTimeout(()=>setShowComplete(false),2500);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      {showPicker && <ExercisePicker library={library} selected={selectedNames} onToggle={toggleExercise} onClose={()=>setShowPicker(false)} day={day}/>}
+      <div style={{background:"#111",border:`1px solid ${open?color+"33":"#1a1a1a"}`,borderRadius:12,overflow:"hidden",boxShadow:open?`0 0 24px ${color}11`:"none",transition:"border-color 0.2s"}}>
+
+        {/* Header */}
+        <div onClick={()=>setOpen(o=>!o)} style={{padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",borderLeft:`4px solid ${color}`}}>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:700,letterSpacing:2,color:"#fff",textTransform:"uppercase"}}>{day}</div>
+              {isToday && <span style={{background:color,color:"#000",fontSize:9,fontWeight:700,letterSpacing:2,padding:"2px 7px",borderRadius:20,textTransform:"uppercase"}}>TODAY</span>}
+              {showComplete && <span style={{background:"#1a3a1a",color:"#3CFF8F",fontSize:9,fontWeight:700,letterSpacing:2,padding:"2px 7px",borderRadius:20,textTransform:"uppercase"}}>✓ LOGGED</span>}
+            </div>
+            <div style={{fontSize:11,color:"#444",letterSpacing:1}}>{workouts.length?`${workouts.length} exercise${workouts.length!==1?"s":""}` : "Rest day"}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {/* Editable label */}
+            {editingLabel ? (
+              <div onClick={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6}}>
+                <input autoFocus value={labelDraft} onChange={e=>setLabelDraft(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter")saveLabel();if(e.key==="Escape")setEditingLabel(false);}}
+                  placeholder="e.g. Push Day"
+                  style={{background:"#1a1a1a",border:`1px solid ${color}66`,borderRadius:6,color:"#fff",padding:"5px 10px",fontSize:13,outline:"none",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,width:110}}/>
+                <button onClick={saveLabel} style={{background:color,color:"#000",border:"none",borderRadius:5,padding:"5px 10px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700}}>✓</button>
+              </div>
+            ) : (
+              <div onClick={e=>{e.stopPropagation();setLabelDraft(customLabel||"");setEditingLabel(true);}}
+                style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",background:"#1a1a1a",border:"1px solid #222",borderRadius:6,padding:"5px 12px"}}>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1,color:customLabel?color:"#444",textTransform:"uppercase"}}>{customLabel||"Label day..."}</span>
+                <span style={{fontSize:11,color:"#333"}}>✏️</span>
+              </div>
+            )}
+            <div style={{color:"#444",fontSize:20,transform:open?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>⌄</div>
+          </div>
+        </div>
+
+        {/* Expanded */}
+        {open && (
+          <div style={{borderTop:"1px solid #1a1a1a",padding:"14px 18px"}}>
+            <button onClick={()=>setShowPicker(true)} style={{width:"100%",padding:"11px",background:"transparent",border:`1px dashed ${color}66`,borderRadius:8,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,letterSpacing:2,textTransform:"uppercase",color:color,display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:workouts.length?14:0}}>
+              <span style={{fontSize:18}}>+</span> Add Exercises
+            </button>
+
+            {workouts.length>0 && (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {workouts.map((workout,wIdx)=>{
+                  const isCardio=workout.type==="cardio";
+                  const ac=isCardio?"#3CF0FF":color;
+                  return (
+                    <div key={workout.name} style={{background:"#0d0d0d",border:"1px solid #1e1e1e",borderRadius:10,overflow:"hidden"}}>
+                      <div style={{padding:"11px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #1a1a1a"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,letterSpacing:1,color:"#fff",textTransform:"uppercase"}}>{workout.name}</div>
+                          <span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",padding:"2px 7px",borderRadius:20,background:isCardio?"rgba(60,240,255,0.1)":"rgba(232,255,60,0.08)",color:isCardio?"#3CF0FF":"#777",border:`1px solid ${isCardio?"#3CF0FF33":"#2a2a2a"}`}}>{isCardio?"🏃 Cardio":"🏋️ Lifting"}</span>
+                        </div>
+                        <button onClick={()=>toggleExercise(workout.name)} style={{background:"none",border:"none",color:"#2a2a2a",cursor:"pointer",fontSize:18}}>×</button>
+                      </div>
+                      <div style={{padding:"10px 14px"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 28px",gap:6,marginBottom:6}}>
+                          {["#","",isCardio?"TIME":"",].map((h,i)=>(
+                            <div key={i} style={{fontSize:9,color:"#333",letterSpacing:2,textTransform:"uppercase",textAlign:"center"}}>
+                              {i===0?"#":i===1?(isCardio?"SETS":"REPS"):i===2?(isCardio?"TIME":"LBS"):""}
+                            </div>
+                          ))}
+                          <div/>
+                        </div>
+                        {workout.sets.map((set,sIdx)=>(
+                          <div key={sIdx} style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 28px",gap:6,marginBottom:5,alignItems:"center"}}>
+                            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,color:ac,textAlign:"center",fontWeight:700}}>{sIdx+1}</div>
+                            {isCardio ? (<>
+                              <input type="number" placeholder="—" value={set.sets||""} onChange={e=>updateSet(wIdx,sIdx,"sets",e.target.value)}
+                                style={{background:"#111",border:"1px solid #222",borderRadius:5,color:"#fff",padding:"7px 8px",fontSize:14,outline:"none",width:"100%",textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                              <input type="text" placeholder="e.g. 20m" value={set.time||""} onChange={e=>updateSet(wIdx,sIdx,"time",e.target.value)}
+                                style={{background:"#111",border:"1px solid #222",borderRadius:5,color:"#fff",padding:"7px 8px",fontSize:14,outline:"none",width:"100%",textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                            </>) : (<>
+                              <input type="number" placeholder="—" value={set.reps||""} onChange={e=>updateSet(wIdx,sIdx,"reps",e.target.value)}
+                                style={{background:"#111",border:"1px solid #222",borderRadius:5,color:"#fff",padding:"7px 8px",fontSize:14,outline:"none",width:"100%",textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                              <input type="number" placeholder="—" value={set.weight||""} onChange={e=>updateSet(wIdx,sIdx,"weight",e.target.value)}
+                                style={{background:"#111",border:"1px solid #222",borderRadius:5,color:"#fff",padding:"7px 8px",fontSize:14,outline:"none",width:"100%",textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                            </>)}
+                            <button onClick={()=>removeSet(wIdx,sIdx)} style={{background:"none",border:"none",color:"#2a2a2a",cursor:"pointer",fontSize:15,textAlign:"center"}}>×</button>
+                          </div>
+                        ))}
+                        <button onClick={()=>addSet(wIdx)} style={{marginTop:4,width:"100%",background:"none",border:"1px dashed #1e1e1e",color:"#333",padding:"7px",borderRadius:5,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,textTransform:"uppercase"}}>+ Set</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button onClick={completeDay} style={{width:"100%",marginTop:4,padding:"14px",background:`linear-gradient(135deg,${color},${color}cc)`,border:"none",borderRadius:10,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,fontWeight:700,letterSpacing:3,textTransform:"uppercase",color:"#000",boxShadow:`0 4px 20px ${color}33`}}>
+                  ✓ Complete {day} & Log
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── MAIN APP ──
+function App() {
+  const saved = loadData();
+  const [view, setView] = useState("week");
+  const [library, setLibrary] = useState(saved?.library||DEFAULT_LIBRARY);
+  const [journal, setJournal] = useState(saved?.journal||{});
+  const [weekPlan, setWeekPlan] = useState(saved?.weekPlan||{});
+  const [dayLabels, setDayLabels] = useState(saved?.dayLabels||{});
+  const [search, setSearch] = useState("");
+  const [newExercise, setNewExercise] = useState("");
+  const [newType, setNewType] = useState("lifting");
+  const [libFilter, setLibFilter] = useState("all");
+  const [showTimer, setShowTimer] = useState(false);
+  const today = todayDayName();
+
+  useEffect(()=>{ saveData({library,journal,weekPlan,dayLabels}); },[library,journal,weekPlan,dayLabels]);
+
+  function addToLibrary() {
+    const name=newExercise.trim();
+    if(!name||library.find(e=>e.name===name)) return;
+    setLibrary(prev=>[...prev,{name,type:newType}].sort((a,b)=>a.name.localeCompare(b.name)));
+    setNewExercise("");
+  }
+  function removeFromLibrary(name) {
+    setLibrary(prev=>prev.filter(e=>e.name!==name));
+    setWeekPlan(prev=>{ const copy={...prev}; DAYS.forEach(d=>{if(copy[d])copy[d]=copy[d].filter(w=>w.name!==name);}); return copy; });
+  }
+
+  const allEntries = Object.values(journal).sort((a,b)=>b.date.localeCompare(a.date));
+  const totalSessions = allEntries.length;
+  const totalSets = allEntries.reduce((a,e)=>a+e.totalSets,0);
+  const exerciseFreq = {};
+  allEntries.forEach(e=>e.workouts.forEach(w=>{exerciseFreq[w.name]=(exerciseFreq[w.name]||0)+1;}));
+  const topExercise = Object.entries(exerciseFreq).sort((a,b)=>b[1]-a[1])[0];
+  const filtered = library.filter(e=>e.name.toLowerCase().includes(search.toLowerCase())&&(libFilter==="all"||e.type===libFilter));
+
+  const NAV = [{id:"week",label:"Week",icon:"📅"},{id:"library",label:"Library",icon:"📋"},{id:"journal",label:"Journal",icon:"📓"},{id:"stats",label:"Stats",icon:"📊"}];
+
+  return (
+    <div style={{minHeight:"100vh",background:"#0a0a0a",color:"#e0e0e0",fontFamily:"'DM Sans',sans-serif"}}>
+      {showTimer && <RestTimer onClose={()=>setShowTimer(false)}/>}
+
+      {/* Header */}
+      <div style={{padding:"24px 20px 0",maxWidth:520,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:32,fontWeight:700,letterSpacing:3,color:"#fff",textTransform:"uppercase",lineHeight:1}}>
+              HUALITY<span style={{color:"#E8FF3C"}}>LIFTS</span>
+            </div>
+            <div style={{fontSize:11,color:"#444",letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Weekly Planner</div>
+          </div>
+          <button onClick={()=>setShowTimer(true)} style={{background:"#111",border:"1px solid #222",borderRadius:10,padding:"10px 14px",cursor:"pointer",color:"#E8FF3C",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
+            ⏱ Rest
+          </button>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <div style={{display:"flex",gap:4,padding:"16px 20px",maxWidth:520,margin:"0 auto",position:"sticky",top:0,background:"#0a0a0a",zIndex:10,borderBottom:"1px solid #111"}}>
+        {NAV.map(n=>(
+          <button key={n.id} onClick={()=>setView(n.id)} style={{flex:1,padding:"10px 4px",border:"none",borderRadius:8,cursor:"pointer",background:view===n.id?"#E8FF3C":"#111",color:view===n.id?"#000":"#555",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>
+            <div style={{fontSize:15}}>{n.icon}</div>{n.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{maxWidth:520,margin:"0 auto",padding:"20px 20px 100px"}}>
+
+        {/* WEEK */}
+        {view==="week" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff"}}>THIS WEEK</div>
+              <div style={{fontSize:11,color:"#444",letterSpacing:1}}>Tap a day to expand</div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {DAYS.map(day=>(
+                <DayCard key={day} day={day} library={library} weekPlan={weekPlan} setWeekPlan={setWeekPlan}
+                  journal={journal} setJournal={setJournal} isToday={day===today}
+                  dayLabels={dayLabels} setDayLabels={setDayLabels}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* LIBRARY */}
+        {view==="library" && (
+          <div>
+            <div style={{marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff"}}>EXERCISE LIBRARY</div>
+            <div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:10,padding:"14px",marginBottom:12}}>
+              <div style={{fontSize:10,color:"#444",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Add New Exercise</div>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                {[{id:"lifting",label:"🏋️ Lifting"},{id:"cardio",label:"🏃 Cardio"}].map(t=>(
+                  <button key={t.id} onClick={()=>setNewType(t.id)} style={{flex:1,padding:"9px",border:"none",borderRadius:8,cursor:"pointer",background:newType===t.id?(t.id==="cardio"?"#3CF0FF":"#E8FF3C"):"#1a1a1a",color:newType===t.id?"#000":"#555",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{t.label}</button>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <input value={newExercise} onChange={e=>setNewExercise(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addToLibrary()}
+                  placeholder={newType==="cardio"?"e.g. Treadmill, Cycling...":"e.g. Cable Fly, Dumbbell Row..."}
+                  style={{flex:1,background:"#0a0a0a",border:"1px solid #1e1e1e",borderRadius:8,color:"#fff",padding:"11px 14px",fontSize:14,outline:"none",fontFamily:"'DM Sans',sans-serif"}}/>
+                <button onClick={addToLibrary} style={{background:newType==="cardio"?"#3CF0FF":"#E8FF3C",color:"#000",border:"none",borderRadius:8,padding:"11px 18px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:700,letterSpacing:1}}>ADD</button>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+              {[{id:"all",label:"All"},{id:"lifting",label:"🏋️"},{id:"cardio",label:"🏃"}].map(t=>(
+                <button key={t.id} onClick={()=>setLibFilter(t.id)} style={{padding:"7px 14px",borderRadius:20,border:"none",cursor:"pointer",background:libFilter===t.id?"#E8FF3C":"#1a1a1a",color:libFilter===t.id?"#000":"#555",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{t.label}</button>
+              ))}
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search..."
+                style={{flex:1,background:"#111",border:"1px solid #1e1e1e",borderRadius:20,color:"#fff",padding:"7px 14px",fontSize:13,outline:"none",fontFamily:"'DM Sans',sans-serif"}}/>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {filtered.map(ex=>{
+                const isCardio=ex.type==="cardio";
+                return (
+                  <div key={ex.name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#111",border:"1px solid #1e1e1e",borderRadius:8,padding:"11px 14px",borderLeft:`3px solid ${isCardio?"#3CF0FF":"#2a2a2a"}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,letterSpacing:0.5,color:"#ccc",textTransform:"uppercase"}}>{ex.name}</div>
+                      <span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",padding:"2px 7px",borderRadius:20,background:isCardio?"rgba(60,240,255,0.1)":"rgba(255,255,255,0.04)",color:isCardio?"#3CF0FF":"#444",border:`1px solid ${isCardio?"#3CF0FF33":"#222"}`}}>{isCardio?"Cardio":"Lifting"}</span>
+                    </div>
+                    <button onClick={()=>removeFromLibrary(ex.name)} style={{background:"none",border:"none",color:"#2a2a2a",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* JOURNAL */}
+        {view==="journal" && (
+          <div>
+            <div style={{marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff"}}>TRAINING JOURNAL</div>
+            {allEntries.length===0 ? (
+              <div style={{textAlign:"center",padding:"60px 20px",border:"1px dashed #1e1e1e",borderRadius:12}}>
+                <div style={{fontSize:40,marginBottom:12}}>📓</div>
+                <div style={{color:"#333",fontSize:14}}>No sessions logged yet.</div>
+              </div>
+            ) : allEntries.map(entry=>{
+              const c=DAY_COLORS[entry.day]||"#E8FF3C";
+              return (
+                <div key={entry.date} style={{background:"#111",border:"1px solid #1e1e1e",borderLeft:`4px solid ${c}`,borderRadius:12,overflow:"hidden",marginBottom:10}}>
+                  <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
+                    <div>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,letterSpacing:1,color:"#fff"}}>{entry.dateLabel}</div>
+                      <div style={{fontSize:11,color:"#444",marginTop:2}}>{entry.totalExercises} exercises · {entry.totalSets} sets</div>
+                    </div>
+                    <div style={{background:c+"22",color:c,borderRadius:6,padding:"4px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:1}}>LOGGED</div>
+                  </div>
+                  <div style={{padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
+                    {entry.workouts.map(w=>(
+                      <div key={w.name}>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,letterSpacing:0.5,color:"#555",marginBottom:4,textTransform:"uppercase"}}>{w.name}</div>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                          {w.sets.map((s,i)=>(
+                            <div key={i} style={{background:"#0a0a0a",border:"1px solid #1e1e1e",borderRadius:5,padding:"4px 10px",fontSize:12,color:"#555",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:0.5}}>
+                              {w.type==="cardio"?`${s.sets||"—"} sets${s.time?` · ${s.time}`:""}`:`${s.reps||"—"} reps${s.weight?` @ ${s.weight}lbs`:""}`}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* STATS */}
+        {view==="stats" && (
+          <div>
+            <div style={{marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff"}}>YOUR PROGRESS</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {[{label:"Total Sessions",value:totalSessions,icon:"🏋️"},{label:"Total Sets",value:totalSets,icon:"💪"},{label:"Exercises",value:library.length,icon:"📋"},{label:"Top Exercise",value:topExercise?topExercise[0].split(" ")[0]:"—",icon:"⭐"}].map(stat=>(
+                <div key={stat.label} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"18px 16px",textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:6}}>{stat.icon}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:32,fontWeight:700,color:"#E8FF3C",letterSpacing:1,lineHeight:1}}>{stat.value}</div>
+                  <div style={{fontSize:10,color:"#444",letterSpacing:1,marginTop:4,textTransform:"uppercase"}}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+            {Object.keys(exerciseFreq).length>0 && (
+              <div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,color:"#444",textTransform:"uppercase",marginBottom:14}}>Exercise Frequency</div>
+                {Object.entries(exerciseFreq).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([name,count])=>{
+                  const max=Object.values(exerciseFreq).reduce((a,b)=>Math.max(a,b),1);
+                  return (
+                    <div key={name} style={{marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:0.5,color:"#777",textTransform:"uppercase"}}>{name}</div>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:"#E8FF3C"}}>{count}x</div>
+                      </div>
+                      <div style={{height:4,background:"#1a1a1a",borderRadius:2,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${(count/max)*100}%`,borderRadius:2,background:"linear-gradient(to right,#E8FF3C,#c8e000)"}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {allEntries.length===0 && (
+              <div style={{textAlign:"center",padding:"40px 20px",border:"1px dashed #1e1e1e",borderRadius:12}}>
+                <div style={{fontSize:40,marginBottom:12}}>📊</div>
+                <div style={{color:"#333",fontSize:14}}>Complete your first session to see stats.</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
