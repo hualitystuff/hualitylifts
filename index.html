@@ -172,6 +172,8 @@ function DayCard({ day, library, weekPlan, setWeekPlan, journal, setJournal, isT
   const [showComplete, setShowComplete] = useState(false);
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState(dayLabels[day]||"");
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
   const color = DAY_COLORS[day];
   const workouts = weekPlan[day]||[];
   const selectedNames = workouts.map(w=>w.name);
@@ -228,6 +230,16 @@ function DayCard({ day, library, weekPlan, setWeekPlan, journal, setJournal, isT
     setOpen(false);
   }
 
+  function reorderWorkout(fromIdx, toIdx) {
+    if(fromIdx===toIdx) return;
+    setWeekPlan(prev=>{
+      const curr=[...(prev[day]||[])];
+      const [moved]=curr.splice(fromIdx,1);
+      curr.splice(toIdx,0,moved);
+      return {...prev,[day]:curr};
+    });
+  }
+
   return (
     <>
       {showPicker && <ExercisePicker library={library} selected={selectedNames} onToggle={toggleExercise} onClose={()=>setShowPicker(false)} day={day}/>}
@@ -277,9 +289,16 @@ function DayCard({ day, library, weekPlan, setWeekPlan, journal, setJournal, isT
                   const isCardio=workout.type==="cardio";
                   const ac=isCardio?"#3CF0FF":color;
                   return (
-                    <div key={workout.name} style={{background:"#0d0d0d",border:"1px solid #1e1e1e",borderRadius:10,overflow:"hidden"}}>
+                    <div key={workout.name}
+                      draggable
+                      onDragStart={()=>setDragIdx(wIdx)}
+                      onDragOver={e=>{e.preventDefault();setDragOverIdx(wIdx);}}
+                      onDrop={e=>{e.preventDefault();reorderWorkout(dragIdx,wIdx);setDragIdx(null);setDragOverIdx(null);}}
+                      onDragEnd={()=>{setDragIdx(null);setDragOverIdx(null);}}
+                      style={{background:"#0d0d0d",border:`1px solid ${dragOverIdx===wIdx&&dragIdx!==wIdx?"#555":"#1e1e1e"}`,borderRadius:10,overflow:"hidden",opacity:dragIdx===wIdx?0.4:1,transition:"border-color 0.15s,opacity 0.15s"}}>
                       <div style={{padding:"11px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #1a1a1a"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{color:"#444",fontSize:15,cursor:"grab",userSelect:"none",lineHeight:1}}>⠿</span>
                           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,letterSpacing:1,color:"#fff",textTransform:"uppercase"}}>{workout.name}</div>
                           <span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",padding:"2px 7px",borderRadius:20,background:isCardio?"rgba(60,240,255,0.1)":"rgba(232,255,60,0.08)",color:isCardio?"#3CF0FF":"#777",border:`1px solid ${isCardio?"#3CF0FF33":"#2a2a2a"}`}}>{isCardio?"🏃 Cardio":"🏋️ Lifting"}</span>
                         </div>
