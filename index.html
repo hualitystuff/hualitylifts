@@ -477,7 +477,32 @@ function App() {
         {/* JOURNAL */}
         {view==="journal" && (
           <div>
-            <div style={{marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff"}}>TRAINING JOURNAL</div>
+            <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,letterSpacing:2,color:"#fff"}}>TRAINING JOURNAL</div>
+              {allEntries.length>0 && (
+                <button onClick={()=>{
+                  const rows=[["Date","Day","Exercise","Type","Set #","Reps","Weight (lbs)","Sets","Time"]];
+                  allEntries.forEach(entry=>{
+                    entry.workouts.forEach(w=>{
+                      if(w.sets.length===0){
+                        rows.push([entry.dateLabel,entry.day,w.name,w.type||"","","","","",""]);
+                      } else {
+                        w.sets.forEach((s,i)=>{
+                          rows.push([entry.dateLabel,entry.day,w.name,w.type||"",i+1,s.reps||"",s.weight||"",s.sets||"",s.time||""]);
+                        });
+                      }
+                    });
+                  });
+                  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+                  const a=document.createElement("a");
+                  a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+                  a.download="training-journal.csv";
+                  a.click();
+                }} style={{background:"#E8FF3C",color:"#000",border:"none",borderRadius:8,padding:"8px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1.5,cursor:"pointer",fontWeight:700}}>
+                  EXPORT CSV
+                </button>
+              )}
+            </div>
             {allEntries.length===0 ? (
               <div style={{textAlign:"center",padding:"60px 20px",border:"1px dashed #1e1e1e",borderRadius:12}}>
                 <div style={{fontSize:40,marginBottom:12}}>📓</div>
